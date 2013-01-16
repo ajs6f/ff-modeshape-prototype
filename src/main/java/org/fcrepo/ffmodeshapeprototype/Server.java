@@ -5,33 +5,22 @@
 package org.fcrepo.ffmodeshapeprototype;
 
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.math.BigDecimal;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.infinispan.schematic.document.ParsingException;
+import org.modeshape.common.collection.Problems;
+import org.modeshape.jcr.*;
+
 import javax.jcr.Node;
+import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.Workspace;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import org.modeshape.common.collection.Problems;
-import org.infinispan.schematic.document.ParsingException;
-import org.modeshape.jcr.ConfigurationException;
-import org.modeshape.jcr.JcrRepository;
-import org.modeshape.jcr.ModeShapeEngine;
-import org.modeshape.jcr.RepositoryConfiguration;
-
-
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.core.Response;
-import org.modeshape.jcr.JcrSession;
+import java.io.FileNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -43,6 +32,7 @@ import org.modeshape.jcr.JcrSession;
 public class Server {
     private ModeShapeEngine engine;
     private JcrRepository repository;
+    private static Logger logger = LoggerFactory.getLogger(org.fcrepo.ffmodeshapeprototype.Server.class);
    
     public Server() throws Exception, ConfigurationException, RepositoryException {
                 RepositoryConfiguration repository_config = null;
@@ -57,9 +47,9 @@ public class Server {
             }
             
         } catch (ParsingException ex) {
-            Logger.getLogger(Server.class.getName()).log(Level.SEVERE, null, ex);
+            logger.error(null, ex);
         } catch (FileNotFoundException ex) {
-            Logger.getLogger(Server.class.getName()).log(Level.SEVERE, null, ex);
+            logger.error(null, ex);
         }
         
         
@@ -71,9 +61,6 @@ public class Server {
         
         engine.start();
         this.repository = engine.deploy(repository_config);
-        
-        Workspace ws = this.repository.login().getWorkspace();
-        ws.createWorkspace("fedora");
     }
     
     @GET
@@ -85,30 +72,33 @@ public class Server {
     @POST
     @Path("/objects/{pid}")
     public Response ingest(@PathParam("pid") String pid) throws RepositoryException {
-        JcrSession session = this.repository.login("fedora");
+
+        this.logger.debug("Running ingest");
+
+        JcrSession session = this.repository.login();
       
         Node root = session.getRootNode();
         if(session.hasPermission("/" + pid, "add_node")) {
             Node obj = root.addNode(pid);
-            obj.setProperty("ownerId", "Fedo Radmin");
             session.save();
-            return Response.status(200).entity(obj.toString()).build();
+            session.logout();
+
+            System.out.println("added " + obj.getIdentifier());
+            session = this.repository.login();
+            root = session.getRootNode();
+            
+            return Response.status(200).entity(root.getNode(pid).toString()).build();
         } else {
             return Response.status(401).entity("NO!").build();
         }
     }
     
     @GET
-    @Path("/objects/{pid}")
+    @Path("/object/{pid}")
     public Response getObject(@PathParam("pid") String pid) throws RepositoryException { 
-        JcrSession session = this.repository.login("fedora");
+        JcrSession session = this.repository.login();
         Node root = session.getRootNode();
-        
-        if(root.hasNode(pid)) {
-            return Response.status(200).entity(pid).build(); 
-       } else {
-            return Response.status(404).entity("404").build();
-        }
-        
+
+        return Response.status(200).entity(root.getNode(pid).toString()).build();
     }
 }

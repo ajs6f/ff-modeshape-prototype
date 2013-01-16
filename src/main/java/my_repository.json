@@ -2,9 +2,18 @@
     "name" : "repo",
     "jndiName" : "",
     "workspaces" : {
-        "predefined" : [""],
+        "predefined" : [],
         "default" : "default",
         "allowCreation" : true
+    },
+    "storage" : {
+        "cacheName" : "DataRepository",
+        "cacheConfiguration" : "infinispan_configuration.xml",
+        "binaryStorage" : {
+            "type" : "file",
+            "directory" : "DataRepository/binaries",
+            "minimumBinarySizeInBytes" : 4096
+        }
     },
     "security" : {
         "anonymous" : {
